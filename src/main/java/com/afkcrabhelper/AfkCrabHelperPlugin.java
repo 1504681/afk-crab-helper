@@ -51,6 +51,7 @@ public class AfkCrabHelperPlugin extends Plugin
     private boolean isCalculatingDps = false;
     private long afkTimeCalculatedAt = 0;
     private double baseSecondsRemaining = 0.0;
+    private int dpsReadingCount = 0; // Track number of DPS readings
 
     @Override
     protected void startUp() throws Exception
@@ -251,6 +252,7 @@ public class AfkCrabHelperPlugin extends Plugin
         isCalculatingDps = false;
         afkTimeCalculatedAt = 0;
         baseSecondsRemaining = 0.0;
+        dpsReadingCount = 0;
     }
     
     private void startAfkCalculation(NPC crab)
@@ -306,16 +308,19 @@ public class AfkCrabHelperPlugin extends Plugin
                     // More conservative moving average and bounds checking
                     if (dpsThisInterval > 0.1 && dpsThisInterval < 20.0) // Reasonable DPS bounds
                     {
+                        dpsReadingCount++;
+                        
                         if (calculatedDps == 0.0)
                         {
                             calculatedDps = dpsThisInterval;
                         }
                         else
                         {
-                            // More conservative smoothing
-                            calculatedDps = (calculatedDps * 0.8) + (dpsThisInterval * 0.2);
+                            // Even more conservative smoothing for early readings
+                            double smoothingFactor = Math.min(0.3, 0.1 + (dpsReadingCount * 0.05));
+                            calculatedDps = (calculatedDps * (1.0 - smoothingFactor)) + (dpsThisInterval * smoothingFactor);
                         }
-                        log.debug("DPS updated: {} (interval: {}, hp lost: {}, time: {}ms)", calculatedDps, dpsThisInterval, hpLost, timeElapsed);
+                        log.debug("DPS updated: {} (interval: {}, hp lost: {}, time: {}ms, readings: {})", calculatedDps, dpsThisInterval, hpLost, timeElapsed, dpsReadingCount);
                     }
                 }
                 
@@ -344,9 +349,9 @@ public class AfkCrabHelperPlugin extends Plugin
             return null;
         }
         
-        // Check if we're still in calculation period (6 seconds)
+        // Check if we're still in calculation period - need more time and readings for accuracy
         long timeSinceStart = System.currentTimeMillis() - dpsCalculationStartTime;
-        if (timeSinceStart < 6000) // 6 seconds fixed delay
+        if (timeSinceStart < 10000 || dpsReadingCount < 2) // 10 seconds and at least 2 DPS readings
         {
             return "Calculating...";
         }
@@ -363,11 +368,14 @@ public class AfkCrabHelperPlugin extends Plugin
         
         // Recalculate more frequently but with bounds checking
         long timeSinceLastCalc = System.currentTimeMillis() - afkTimeCalculatedAt;
-        if (afkTimeCalculatedAt == 0 || timeSinceLastCalc > 5000) // Recalculate every 5 seconds
+        if (afkTimeCalculatedAt == 0 || timeSinceLastCalc > 8000) // Recalculate every 8 seconds for stability
         {
-            baseSecondsRemaining = Math.min(600, Math.max(5, currentHp / calculatedDps)); // Bound between 5s and 10min
+            // Add a conservative buffer for early readings to account for DPS variations
+            double conservativeMultiplier = dpsReadingCount < 4 ? 1.3 : 1.1; // 30% buffer early, 10% later
+            double adjustedTime = (currentHp / calculatedDps) * conservativeMultiplier;
+            baseSecondsRemaining = Math.min(600, Math.max(5, adjustedTime)); // Bound between 5s and 10min
             afkTimeCalculatedAt = System.currentTimeMillis();
-            log.debug("Recalculated AFK time: {}s (HP: {}, DPS: {})", baseSecondsRemaining, currentHp, calculatedDps);
+            log.debug("Recalculated AFK time: {}s (HP: {}, DPS: {}, readings: {}, multiplier: {})", baseSecondsRemaining, currentHp, calculatedDps, dpsReadingCount, conservativeMultiplier);
         }
         
         // Calculate countdown based on elapsed time
