@@ -2,6 +2,8 @@
 
 A RuneLite plugin that provides a distraction-reducing overlay when training on crabs, helping you focus on other tasks while AFK training.
 
+Heavily inspired by the great plugin **Distraction Reducer** https://github.com/Car-role/distraction-reducer
+
 ## Features
 
 - **Automatic Detection**: Detects when you're interacting with any crab type (Sand Crabs, Rock Crabs, Ammonite Crabs, Gemstone Crabs)
