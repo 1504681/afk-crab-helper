@@ -255,13 +255,17 @@ public class AfkCrabHelperPlugin extends Plugin
     
     private void startAfkCalculation(NPC crab)
     {
-        if (crab.getHealthRatio() != -1)
+        if (crab.getHealthRatio() != -1 && crab.getHealthScale() > 0)
         {
-            initialCrabHp = (crab.getHealthRatio() * crab.getHealthScale()) / 30; // Approximate HP
+            // Better HP calculation - ensure we don't get negative or zero values
+            int healthRatio = Math.max(1, crab.getHealthRatio());
+            int healthScale = Math.max(1, crab.getHealthScale());
+            initialCrabHp = Math.max(1, (healthRatio * healthScale) / 30);
             lastCrabHp = initialCrabHp;
             lastHpCheckTime = System.currentTimeMillis();
             dpsCalculationStartTime = System.currentTimeMillis();
             isCalculatingDps = true;
+            log.debug("Starting AFK calculation - Initial HP: {}, Ratio: {}, Scale: {}", initialCrabHp, healthRatio, healthScale);
         }
     }
     
@@ -273,7 +277,10 @@ public class AfkCrabHelperPlugin extends Plugin
         }
         
         long currentTime = System.currentTimeMillis();
-        int currentHp = (crab.getHealthRatio() * crab.getHealthScale()) / 30; // Approximate HP
+        // Better HP calculation with bounds checking
+        int healthRatio = Math.max(0, crab.getHealthRatio());
+        int healthScale = Math.max(1, crab.getHealthScale());
+        int currentHp = Math.max(0, (healthRatio * healthScale) / 30);
         
         // Check if crab is dead
         if (currentHp <= 0 || crab.isDead())
@@ -286,24 +293,29 @@ public class AfkCrabHelperPlugin extends Plugin
         }
         
         // Only calculate DPS after we have some time elapsed and HP has changed
-        if (currentTime - dpsCalculationStartTime >= 2000 && currentHp != lastCrabHp && lastCrabHp > 0)
+        if (currentTime - dpsCalculationStartTime >= 3000 && currentHp < lastCrabHp && lastCrabHp > 0)
         {
             long timeElapsed = currentTime - lastHpCheckTime;
-            if (timeElapsed > 1000) // At least 1 second between HP checks
+            if (timeElapsed >= 2000) // At least 2 seconds between HP checks for more stable readings
             {
                 int hpLost = lastCrabHp - currentHp;
-                if (hpLost > 0)
+                if (hpLost > 0 && hpLost <= 50) // Sanity check - reject unrealistic damage values
                 {
                     double dpsThisInterval = (double) hpLost / (timeElapsed / 1000.0);
                     
-                    // Smooth the DPS calculation using a moving average
-                    if (calculatedDps == 0.0)
+                    // More conservative moving average and bounds checking
+                    if (dpsThisInterval > 0.1 && dpsThisInterval < 20.0) // Reasonable DPS bounds
                     {
-                        calculatedDps = dpsThisInterval;
-                    }
-                    else
-                    {
-                        calculatedDps = (calculatedDps * 0.7) + (dpsThisInterval * 0.3);
+                        if (calculatedDps == 0.0)
+                        {
+                            calculatedDps = dpsThisInterval;
+                        }
+                        else
+                        {
+                            // More conservative smoothing
+                            calculatedDps = (calculatedDps * 0.8) + (dpsThisInterval * 0.2);
+                        }
+                        log.debug("DPS updated: {} (interval: {}, hp lost: {}, time: {}ms)", calculatedDps, dpsThisInterval, hpLost, timeElapsed);
                     }
                 }
                 
@@ -340,17 +352,22 @@ public class AfkCrabHelperPlugin extends Plugin
         }
         
         // Calculate time remaining based on current HP and DPS
-        int currentHp = (currentCrab.getHealthRatio() * currentCrab.getHealthScale()) / 30;
+        int healthRatio = Math.max(0, currentCrab.getHealthRatio());
+        int healthScale = Math.max(1, currentCrab.getHealthScale());
+        int currentHp = Math.max(0, (healthRatio * healthScale) / 30);
+        
         if (currentHp <= 0)
         {
             return "Crab dead";
         }
         
-        // Calculate initial time if not done yet, or if HP has changed significantly
-        if (afkTimeCalculatedAt == 0 || Math.abs(currentHp - lastCrabHp) > 5)
+        // Recalculate more frequently but with bounds checking
+        long timeSinceLastCalc = System.currentTimeMillis() - afkTimeCalculatedAt;
+        if (afkTimeCalculatedAt == 0 || timeSinceLastCalc > 5000) // Recalculate every 5 seconds
         {
-            baseSecondsRemaining = currentHp / calculatedDps;
+            baseSecondsRemaining = Math.min(600, Math.max(5, currentHp / calculatedDps)); // Bound between 5s and 10min
             afkTimeCalculatedAt = System.currentTimeMillis();
+            log.debug("Recalculated AFK time: {}s (HP: {}, DPS: {})", baseSecondsRemaining, currentHp, calculatedDps);
         }
         
         // Calculate countdown based on elapsed time
@@ -358,10 +375,10 @@ public class AfkCrabHelperPlugin extends Plugin
         double elapsedSeconds = elapsedSinceCalculation / 1000.0;
         double secondsRemaining = Math.max(0, baseSecondsRemaining - elapsedSeconds);
         
-        // If countdown reaches 0 but crab still has HP, recalculate
+        // If countdown reaches 0 but crab still has HP, recalculate immediately
         if (secondsRemaining <= 0 && currentHp > 0)
         {
-            baseSecondsRemaining = currentHp / calculatedDps;
+            baseSecondsRemaining = Math.min(600, Math.max(5, currentHp / calculatedDps));
             afkTimeCalculatedAt = System.currentTimeMillis();
             secondsRemaining = baseSecondsRemaining;
         }
