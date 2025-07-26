@@ -7,6 +7,7 @@ import net.runelite.api.Actor;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.InteractingChanged;
 import net.runelite.api.events.NpcDespawned;
@@ -75,6 +76,7 @@ public class AfkCrabHelperPlugin extends Plugin
         }
 
         checkCrabInteraction();
+        checkCrabStatus();
     }
 
     private void checkCrabInteraction()
@@ -135,6 +137,30 @@ public class AfkCrabHelperPlugin extends Plugin
 
         isInteractingWithCrab = currentlyInteractingWithCrab;
     }
+    
+    private void checkCrabStatus()
+    {
+        // Check if our tracked crab is still valid
+        if (currentCrab != null)
+        {
+            // Check if crab is no longer valid (burrowed or moved away)
+            if (!client.getNpcs().contains(currentCrab))
+            {
+                // Crab is no longer in the world - likely burrowed
+                if (config.notifyOnCrabBurrow() && isGemstoneCrab(currentCrab.getName()))
+                {
+                    // Send burrow notification
+                    client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", 
+                        "The Gemstone Crab burrows away!", null);
+                }
+                
+                // Reset tracking
+                isInteractingWithCrab = false;
+                currentCrab = null;
+                resetAfkCalculation();
+            }
+        }
+    }
 
     private boolean isCrabNpc(String npcName)
     {
@@ -178,18 +204,26 @@ public class AfkCrabHelperPlugin extends Plugin
         // Check if it's our current crab that despawned
         if (npc == currentCrab)
         {
-            if (npc.isDead())
+            // Crab despawned - stop overlay immediately
+            isInteractingWithCrab = false;
+            currentCrab = null;
+            resetAfkCalculation();
+        }
+    }
+    
+    @Subscribe
+    public void onChatMessage(ChatMessage chatMessage)
+    {
+        // Listen for the actual game message about crab burrowing
+        if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE)
+        {
+            String message = chatMessage.getMessage();
+            if (message != null && message.contains("burrows") && currentCrab != null && 
+                isGemstoneCrab(currentCrab.getName()) && config.notifyOnCrabBurrow())
             {
-                // Crab died - immediately stop showing overlay
-                isInteractingWithCrab = false;
-                currentCrab = null;
-                resetAfkCalculation();
-            }
-            else if (config.notifyOnCrabBurrow() && isGemstoneCrab(npc.getName()))
-            {
-                // Crab despawned without dying (burrowed) - send notification
+                // Game already sent the burrow message, but we can add our custom notification
                 client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", 
-                    "The Gemstone Crab burrows away!", null);
+                    "AFK Crab Helper: Gemstone Crab has burrowed!", null);
             }
         }
     }
