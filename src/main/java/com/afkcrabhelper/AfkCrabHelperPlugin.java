@@ -122,9 +122,9 @@ public class AfkCrabHelperPlugin extends Plugin
             currentlyInteractingWithCrab = true;
         }
         
-        // Also check if we have a valid crab target even without recent interaction
-        // This helps ensure overlay shows when attacking starts
-        if (currentCrab != null && client.getNpcs().contains(currentCrab))
+        // Also check if we have a valid crab target and are still actively interacting
+        // Only keep overlay up if we're actually still targeting the crab
+        if (currentCrab != null && client.getNpcs().contains(currentCrab) && target == currentCrab)
         {
             currentlyInteractingWithCrab = true;
         }
