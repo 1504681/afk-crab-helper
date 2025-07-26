@@ -2,7 +2,10 @@ package com.afkcrabhelper;
 
 import java.awt.Color;
 import java.awt.Dimension;
+import java.awt.Font;
+import java.awt.FontMetrics;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.time.Duration;
 import java.time.Instant;
 import javax.inject.Inject;
@@ -12,15 +15,13 @@ import net.runelite.api.NPC;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
-import net.runelite.client.ui.overlay.components.LineComponent;
-import net.runelite.client.ui.overlay.components.PanelComponent;
+import net.runelite.client.ui.overlay.OverlayPriority;
 
 public class AfkCrabHelperOverlay extends Overlay
 {
     private final Client client;
     private final AfkCrabHelperPlugin plugin;
     private final AfkCrabHelperConfig config;
-    private final PanelComponent panelComponent = new PanelComponent();
     private Instant trainingStartTime;
 
     @Inject
@@ -29,8 +30,9 @@ public class AfkCrabHelperOverlay extends Overlay
         this.client = client;
         this.plugin = plugin;
         this.config = config;
-        setPosition(OverlayPosition.DYNAMIC);
-        setLayer(OverlayLayer.ABOVE_SCENE);
+        setPosition(OverlayPosition.DETACHED);
+        setLayer(OverlayLayer.ALWAYS_ON_TOP);
+        setPriority(OverlayPriority.HIGH);
     }
 
     @Override
@@ -48,8 +50,26 @@ public class AfkCrabHelperOverlay extends Overlay
             trainingStartTime = Instant.now();
         }
 
-        // Create full-screen overlay
-        Dimension canvasSize = client.getCanvas().getSize();
+        // Get the maximum possible size to cover everything
+        Dimension clientSize = new Dimension(2560, 1440); // Large enough for most screens
+        
+        try {
+            // Try to get actual client window size
+            if (client.getCanvas() != null) {
+                java.awt.Component canvas = client.getCanvas();
+                // Try to walk up the component hierarchy to find the main window
+                java.awt.Component parent = canvas;
+                while (parent.getParent() != null) {
+                    parent = parent.getParent();
+                    if (parent instanceof javax.swing.JFrame || parent instanceof java.awt.Window) {
+                        clientSize = parent.getSize();
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Use fallback size if anything fails
+        }
         
         // Create overlay color with configured opacity
         Color overlayColor = config.overlayColor();
@@ -60,83 +80,53 @@ public class AfkCrabHelperOverlay extends Overlay
             config.overlayOpacity()
         );
         
-        // Fill the entire screen with overlay
+        // Fill the entire client with overlay
         graphics.setColor(transparentColor);
-        graphics.fillRect(0, 0, canvasSize.width, canvasSize.height);
+        graphics.fillRect(0, 0, clientSize.width, clientSize.height);
 
-        // Render info panel if any info options are enabled
-        if (config.showTimer() || config.showCrabName())
+        // Render AFK time in center if enabled and available
+        if (config.showAfkTime())
         {
-            renderInfoPanel(graphics);
+            renderAfkTimeCenter(graphics);
         }
 
-        return canvasSize;
+        return clientSize;
     }
 
-    private void renderInfoPanel(Graphics2D graphics)
+    private void renderAfkTimeCenter(Graphics2D graphics)
     {
-        panelComponent.getChildren().clear();
-        panelComponent.setBackgroundColor(new Color(0, 0, 0, 100));
-
-        // Show crab name if enabled
-        if (config.showCrabName())
+        String afkTime = plugin.getAfkTimeRemaining();
+        if (afkTime == null)
         {
-            String crabName = getCurrentCrabName();
-            if (crabName != null)
-            {
-                panelComponent.getChildren().add(LineComponent.builder()
-                    .left("Training on:")
-                    .right(crabName)
-                    .build());
-            }
+            return;
         }
 
-        // Show timer if enabled
-        if (config.showTimer() && trainingStartTime != null)
-        {
-            Duration trainingDuration = Duration.between(trainingStartTime, Instant.now());
-            String timeString = formatDuration(trainingDuration);
-            
-            panelComponent.getChildren().add(LineComponent.builder()
-                .left("Training time:")
-                .right(timeString)
-                .build());
-        }
+        // Enable anti-aliasing for smooth text
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Position panel in top-left corner
-        panelComponent.setPreferredLocation(new java.awt.Point(10, 10));
-        panelComponent.render(graphics);
+        // Set large font
+        Font font = new Font(Font.SANS_SERIF, Font.BOLD, 36);
+        graphics.setFont(font);
+        FontMetrics metrics = graphics.getFontMetrics(font);
+
+        // Get the game canvas dimensions for proper centering
+        int canvasWidth = client.getCanvasWidth();
+        int canvasHeight = client.getCanvasHeight();
+        
+        // Calculate center position based on game canvas
+        int textWidth = metrics.stringWidth(afkTime);
+        int x = (canvasWidth - textWidth) / 2;
+        int y = canvasHeight / 2;
+
+        // Draw shadow (slightly offset)
+        graphics.setColor(Color.BLACK);
+        graphics.drawString(afkTime, x + 2, y + 2);
+
+        // Draw main text
+        Color textColor = afkTime.equals("Calculating...") ? Color.YELLOW : Color.WHITE;
+        graphics.setColor(textColor);
+        graphics.drawString(afkTime, x, y);
     }
 
-    private String getCurrentCrabName()
-    {
-        if (client.getLocalPlayer() == null)
-        {
-            return null;
-        }
-
-        Actor target = client.getLocalPlayer().getInteracting();
-        if (target instanceof NPC)
-        {
-            return ((NPC) target).getName();
-        }
-
-        return null;
-    }
-
-    private String formatDuration(Duration duration)
-    {
-        long hours = duration.toHours();
-        long minutes = duration.toMinutesPart();
-        long seconds = duration.toSecondsPart();
-
-        if (hours > 0)
-        {
-            return String.format("%d:%02d:%02d", hours, minutes, seconds);
-        }
-        else
-        {
-            return String.format("%d:%02d", minutes, seconds);
-        }
-    }
 }

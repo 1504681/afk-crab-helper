@@ -37,7 +37,7 @@ public interface AfkCrabHelperConfig extends Config
     @Range(min = 0, max = 255)
     default int overlayOpacity()
     {
-        return 180;
+        return 200;
     }
 
     @ConfigItem(
@@ -63,21 +63,21 @@ public interface AfkCrabHelperConfig extends Config
     }
 
     @ConfigItem(
-        keyName = "showTimer",
-        name = "Show Timer",
-        description = "Display a timer showing how long you've been training"
+        keyName = "showAfkTime",
+        name = "Show AFK Time Remaining",
+        description = "Calculate and display estimated AFK time remaining (Gemstone Crab only)"
     )
-    default boolean showTimer()
+    default boolean showAfkTime()
     {
         return true;
     }
 
     @ConfigItem(
-        keyName = "showCrabName",
-        name = "Show Crab Name",
-        description = "Display the name of the crab you're currently fighting"
+        keyName = "notifyOnCrabBurrow",
+        name = "Notify When Crab Burrows",
+        description = "Send chat notification when Gemstone Crab burrows away"
     )
-    default boolean showCrabName()
+    default boolean notifyOnCrabBurrow()
     {
         return true;
     }
