@@ -20,6 +20,28 @@ public interface AfkCrabHelperConfig extends Config
     }
 
     @ConfigItem(
+        keyName = "activationDelay",
+        name = "Activation Delay",
+        description = "Seconds to wait before showing overlay after crab interaction starts"
+    )
+    @Range(min = 0, max = 30)
+    default int activationDelay()
+    {
+        return 0;
+    }
+
+    @ConfigItem(
+        keyName = "hideDelay",
+        name = "Hide Delay",
+        description = "Seconds to wait before hiding overlay after crab interaction stops"
+    )
+    @Range(min = 0, max = 30)
+    default int hideDelay()
+    {
+        return 0;
+    }
+
+    @ConfigItem(
         keyName = "overlayColor",
         name = "Overlay Color",
         description = "Color of the distraction overlay"
@@ -38,28 +60,6 @@ public interface AfkCrabHelperConfig extends Config
     default int overlayOpacity()
     {
         return 200;
-    }
-
-    @ConfigItem(
-        keyName = "activationDelay",
-        name = "Activation Delay",
-        description = "Seconds to wait before showing overlay after crab interaction starts"
-    )
-    @Range(min = 0, max = 30)
-    default int activationDelay()
-    {
-        return 3;
-    }
-
-    @ConfigItem(
-        keyName = "hideDelay",
-        name = "Hide Delay",
-        description = "Seconds to wait before hiding overlay after crab interaction stops"
-    )
-    @Range(min = 0, max = 30)
-    default int hideDelay()
-    {
-        return 5;
     }
 
     @ConfigItem(

@@ -121,6 +121,13 @@ public class AfkCrabHelperPlugin extends Plugin
         {
             currentlyInteractingWithCrab = true;
         }
+        
+        // Also check if we have a valid crab target even without recent interaction
+        // This helps ensure overlay shows when attacking starts
+        if (currentCrab != null && client.getNpcs().contains(currentCrab))
+        {
+            currentlyInteractingWithCrab = true;
+        }
 
         // Handle activation delay for overlay
         if (currentlyInteractingWithCrab && !isInteractingWithCrab)
@@ -133,6 +140,12 @@ public class AfkCrabHelperPlugin extends Plugin
             // Stopping interaction - reset crab tracking
             resetAfkCalculation();
             currentCrab = null;
+        }
+        
+        // Update overlay start time if we don't have one but should be showing
+        if (currentlyInteractingWithCrab && overlayStartTime == 0)
+        {
+            overlayStartTime = System.currentTimeMillis();
         }
 
         isInteractingWithCrab = currentlyInteractingWithCrab;
