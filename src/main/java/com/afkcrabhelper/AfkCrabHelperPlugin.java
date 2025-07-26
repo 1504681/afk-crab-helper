@@ -353,7 +353,17 @@ public class AfkCrabHelperPlugin extends Plugin
         long timeSinceStart = System.currentTimeMillis() - dpsCalculationStartTime;
         if (timeSinceStart < 10000 || dpsReadingCount < 2) // 10 seconds and at least 2 DPS readings
         {
-            return "Calculating...";
+            // Show initial 10 minute estimate while calculating
+            int minutes = (int) (timeSinceStart / 1000 / 60);
+            int seconds = (int) ((timeSinceStart / 1000) % 60);
+            int remainingMinutes = 9 - minutes;
+            int remainingSeconds = 60 - seconds;
+            
+            if (remainingMinutes < 0) {
+                return "Calculating...";
+            }
+            
+            return String.format("%d:%02d remaining", remainingMinutes, remainingSeconds);
         }
         
         // Calculate time remaining based on current HP and DPS
