@@ -49,7 +49,7 @@ public class AfkCrabHelperOverlay extends Overlay
         }
 
         // Create full-screen overlay
-        Dimension canvasSize = client.getCanvasSize();
+        Dimension canvasSize = client.getCanvas().getSize();
         
         // Create overlay color with configured opacity
         Color overlayColor = config.overlayColor();
