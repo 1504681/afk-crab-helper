@@ -353,17 +353,23 @@ public class AfkCrabHelperPlugin extends Plugin
         long timeSinceStart = System.currentTimeMillis() - dpsCalculationStartTime;
         if (timeSinceStart < 10000 || dpsReadingCount < 2) // 10 seconds and at least 2 DPS readings
         {
-            // Show initial 10 minute estimate while calculating
-            int minutes = (int) (timeSinceStart / 1000 / 60);
-            int seconds = (int) ((timeSinceStart / 1000) % 60);
-            int remainingMinutes = 9 - minutes;
-            int remainingSeconds = 60 - seconds;
+            // Show initial estimate based on crab health percentage / 10 minutes
+            int healthRatio = Math.max(0, currentCrab.getHealthRatio());
+            int healthScale = Math.max(1, currentCrab.getHealthScale());
+            double healthPercent = (double) healthRatio / healthScale * 100.0;
             
-            if (remainingMinutes < 0) {
-                return "Calculating...";
+            // Calculate initial time: health% / 10 minutes, then subtract elapsed time
+            double initialMinutes = healthPercent / 10.0;
+            double elapsedMinutes = timeSinceStart / 1000.0 / 60.0;
+            double remainingMinutes = Math.max(0, initialMinutes - elapsedMinutes);
+            
+            if (remainingMinutes < 1.0) {
+                return String.format("%.0f seconds", remainingMinutes * 60);
+            } else {
+                int mins = (int) remainingMinutes;
+                int secs = (int) ((remainingMinutes - mins) * 60);
+                return String.format("%d:%02d remaining", mins, secs);
             }
-            
-            return String.format("%d:%02d remaining", remainingMinutes, remainingSeconds);
         }
         
         // Calculate time remaining based on current HP and DPS
