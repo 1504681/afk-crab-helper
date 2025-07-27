@@ -41,17 +41,8 @@ public class AfkCrabHelperPlugin extends Plugin
     private long lastCrabInteraction = 0;
     private long overlayStartTime = 0;
     
-    // AFK time calculation variables
+    // Crab tracking variables
     private NPC currentCrab = null;
-    private int lastCrabHp = -1;
-    private long lastHpCheckTime = 0;
-    private double calculatedDps = 0.0;
-    private long dpsCalculationStartTime = 0;
-    private int initialCrabHp = -1;
-    private boolean isCalculatingDps = false;
-    private long afkTimeCalculatedAt = 0;
-    private double baseSecondsRemaining = 0.0;
-    private int dpsReadingCount = 0; // Track number of DPS readings
 
     @Override
     protected void startUp() throws Exception
@@ -97,21 +88,10 @@ public class AfkCrabHelperPlugin extends Plugin
                 lastCrabInteraction = System.currentTimeMillis();
                 targetCrab = npc;
                 
-                // If this is a new crab or we weren't tracking before, reset tracking
+                // If this is a new crab or we weren't tracking before, update tracking
                 if (currentCrab != npc)
                 {
-                    resetAfkCalculation();
                     currentCrab = npc;
-                    if (isGemstoneCrab(npcName))
-                    {
-                        startAfkCalculation(npc);
-                    }
-                }
-                
-                // Update HP tracking for AFK calculation
-                if (currentCrab != null && isGemstoneCrab(npcName))
-                {
-                    updateAfkCalculation(npc);
                 }
             }
         }
@@ -139,7 +119,6 @@ public class AfkCrabHelperPlugin extends Plugin
         else if (!currentlyInteractingWithCrab && isInteractingWithCrab)
         {
             // Stopping interaction - reset crab tracking
-            resetAfkCalculation();
             currentCrab = null;
         }
         
@@ -160,18 +139,9 @@ public class AfkCrabHelperPlugin extends Plugin
             // Check if crab is no longer valid (burrowed or moved away)
             if (!client.getNpcs().contains(currentCrab))
             {
-                // Crab is no longer in the world - likely burrowed
-                if (config.notifyOnCrabBurrow() && isGemstoneCrab(currentCrab.getName()))
-                {
-                    // Send burrow notification
-                    client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", 
-                        "The Gemstone Crab burrows away!", null);
-                }
-                
                 // Reset tracking
                 isInteractingWithCrab = false;
                 currentCrab = null;
-                resetAfkCalculation();
             }
         }
     }
@@ -194,7 +164,7 @@ public class AfkCrabHelperPlugin extends Plugin
     @Subscribe
     public void onInteractingChanged(InteractingChanged event)
     {
-        // Reset AFK calculation when player starts interacting with something new
+        // Track when player starts interacting with something new
         if (event.getSource() == client.getLocalPlayer())
         {
             Actor newTarget = event.getTarget();
@@ -203,8 +173,8 @@ public class AfkCrabHelperPlugin extends Plugin
                 NPC npc = (NPC) newTarget;
                 if (isCrabNpc(npc.getName()))
                 {
-                    // Starting to interact with a crab - reset calculation
-                    resetAfkCalculation();
+                    // Starting to interact with a crab
+                    lastCrabInteraction = System.currentTimeMillis();
                 }
             }
         }
@@ -221,118 +191,14 @@ public class AfkCrabHelperPlugin extends Plugin
             // Crab despawned - stop overlay immediately
             isInteractingWithCrab = false;
             currentCrab = null;
-            resetAfkCalculation();
         }
     }
     
-    @Subscribe
-    public void onChatMessage(ChatMessage chatMessage)
-    {
-        // Listen for the actual game message about crab burrowing
-        if (chatMessage.getType() == ChatMessageType.GAMEMESSAGE)
-        {
-            String message = chatMessage.getMessage();
-            if (message != null && message.contains("burrows") && currentCrab != null && 
-                isGemstoneCrab(currentCrab.getName()) && config.notifyOnCrabBurrow())
-            {
-                // Game already sent the burrow message, but we can add our custom notification
-                client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", 
-                    "AFK Crab Helper: Gemstone Crab has burrowed!", null);
-            }
-        }
-    }
     
-    private void resetAfkCalculation()
-    {
-        lastCrabHp = -1;
-        lastHpCheckTime = 0;
-        calculatedDps = 0.0;
-        dpsCalculationStartTime = 0;
-        initialCrabHp = -1;
-        isCalculatingDps = false;
-        afkTimeCalculatedAt = 0;
-        baseSecondsRemaining = 0.0;
-        dpsReadingCount = 0;
-    }
-    
-    private void startAfkCalculation(NPC crab)
-    {
-        if (crab.getHealthRatio() != -1 && crab.getHealthScale() > 0)
-        {
-            // Better HP calculation - ensure we don't get negative or zero values
-            int healthRatio = Math.max(1, crab.getHealthRatio());
-            int healthScale = Math.max(1, crab.getHealthScale());
-            initialCrabHp = Math.max(1, (healthRatio * healthScale) / 30);
-            lastCrabHp = initialCrabHp;
-            lastHpCheckTime = System.currentTimeMillis();
-            dpsCalculationStartTime = System.currentTimeMillis();
-            isCalculatingDps = true;
-            log.debug("Starting AFK calculation - Initial HP: {}, Ratio: {}, Scale: {}", initialCrabHp, healthRatio, healthScale);
-        }
-    }
-    
-    private void updateAfkCalculation(NPC crab)
-    {
-        if (!isCalculatingDps || crab.getHealthRatio() == -1)
-        {
-            return;
-        }
-        
-        long currentTime = System.currentTimeMillis();
-        // Better HP calculation with bounds checking
-        int healthRatio = Math.max(0, crab.getHealthRatio());
-        int healthScale = Math.max(1, crab.getHealthScale());
-        int currentHp = Math.max(0, (healthRatio * healthScale) / 30);
-        
-        // Check if crab is dead
-        if (currentHp <= 0 || crab.isDead())
-        {
-            // Crab is dead - stop showing overlay
-            isInteractingWithCrab = false;
-            currentCrab = null;
-            resetAfkCalculation();
-            return;
-        }
-        
-        // Only calculate DPS after we have some time elapsed and HP has changed
-        if (currentTime - dpsCalculationStartTime >= 3000 && currentHp < lastCrabHp && lastCrabHp > 0)
-        {
-            long timeElapsed = currentTime - lastHpCheckTime;
-            if (timeElapsed >= 2000) // At least 2 seconds between HP checks for more stable readings
-            {
-                int hpLost = lastCrabHp - currentHp;
-                if (hpLost > 0 && hpLost <= 50) // Sanity check - reject unrealistic damage values
-                {
-                    double dpsThisInterval = (double) hpLost / (timeElapsed / 1000.0);
-                    
-                    // More conservative moving average and bounds checking
-                    if (dpsThisInterval > 0.1 && dpsThisInterval < 20.0) // Reasonable DPS bounds
-                    {
-                        dpsReadingCount++;
-                        
-                        if (calculatedDps == 0.0)
-                        {
-                            calculatedDps = dpsThisInterval;
-                        }
-                        else
-                        {
-                            // Even more conservative smoothing for early readings
-                            double smoothingFactor = Math.min(0.3, 0.1 + (dpsReadingCount * 0.05));
-                            calculatedDps = (calculatedDps * (1.0 - smoothingFactor)) + (dpsThisInterval * smoothingFactor);
-                        }
-                        log.debug("DPS updated: {} (interval: {}, hp lost: {}, time: {}ms, readings: {})", calculatedDps, dpsThisInterval, hpLost, timeElapsed, dpsReadingCount);
-                    }
-                }
-                
-                lastCrabHp = currentHp;
-                lastHpCheckTime = currentTime;
-            }
-        }
-    }
 
     public boolean isShowingOverlay()
     {
-        if (!isInteractingWithCrab || !config.enableOverlay())
+        if (!isInteractingWithCrab)
         {
             return false;
         }
@@ -342,81 +208,70 @@ public class AfkCrabHelperPlugin extends Plugin
         return timeSinceOverlayStart >= config.activationDelay() * 1000;
     }
     
-    public String getAfkTimeRemaining()
+    public String getDisplayText()
     {
-        if (currentCrab == null || !config.showAfkTime() || calculatedDps <= 0.0)
+        if (currentCrab == null)
         {
             return null;
         }
         
-        // Check if we're still in calculation period - need more time and readings for accuracy
-        long timeSinceStart = System.currentTimeMillis() - dpsCalculationStartTime;
-        if (timeSinceStart < 10000 || dpsReadingCount < 2) // 10 seconds and at least 2 DPS readings
-        {
-            // Show initial estimate based on crab health percentage / 10 minutes
-            int healthRatio = Math.max(0, currentCrab.getHealthRatio());
-            int healthScale = Math.max(1, currentCrab.getHealthScale());
-            double healthPercent = (double) healthRatio / healthScale * 100.0;
-            
-            // Calculate initial time: health% / 10 minutes, then subtract elapsed time
-            double initialMinutes = healthPercent / 10.0;
-            double elapsedMinutes = timeSinceStart / 1000.0 / 60.0;
-            double remainingMinutes = Math.max(0, initialMinutes - elapsedMinutes);
-            
-            if (remainingMinutes < 1.0) {
-                return String.format("%.0f seconds", remainingMinutes * 60);
-            } else {
-                int mins = (int) remainingMinutes;
-                int secs = (int) ((remainingMinutes - mins) * 60);
-                return String.format("%d:%02d remaining", mins, secs);
-            }
-        }
-        
-        // Calculate time remaining based on current HP and DPS
+        // Get crab health info
         int healthRatio = Math.max(0, currentCrab.getHealthRatio());
         int healthScale = Math.max(1, currentCrab.getHealthScale());
-        int currentHp = Math.max(0, (healthRatio * healthScale) / 30);
+        double healthPercent = (double) healthRatio / healthScale * 100.0;
         
-        if (currentHp <= 0)
+        if (healthPercent <= 0)
         {
             return "Crab dead";
         }
         
-        // Recalculate more frequently but with bounds checking
-        long timeSinceLastCalc = System.currentTimeMillis() - afkTimeCalculatedAt;
-        if (afkTimeCalculatedAt == 0 || timeSinceLastCalc > 8000) // Recalculate every 8 seconds for stability
+        AfkCrabHelperConfig.DisplayMode mode = config.displayMode();
+        
+        switch (mode)
         {
-            // Add a conservative buffer for early readings to account for DPS variations
-            double conservativeMultiplier = dpsReadingCount < 4 ? 1.3 : 1.1; // 30% buffer early, 10% later
-            double adjustedTime = (currentHp / calculatedDps) * conservativeMultiplier;
-            baseSecondsRemaining = Math.min(600, Math.max(5, adjustedTime)); // Bound between 5s and 10min
-            afkTimeCalculatedAt = System.currentTimeMillis();
-            log.debug("Recalculated AFK time: {}s (HP: {}, DPS: {}, readings: {}, multiplier: {})", baseSecondsRemaining, currentHp, calculatedDps, dpsReadingCount, conservativeMultiplier);
+            case HP_PERCENTAGE:
+                return String.format("%.1f%% HP", healthPercent);
+                
+            case TIME_REMAINING:
+                // Calculate time: health% / 10 minutes
+                double minutes = healthPercent / 10.0;
+                if (minutes < 1.0) {
+                    return String.format("%.0f seconds", minutes * 60);
+                } else {
+                    int mins = (int) minutes;
+                    int secs = (int) ((minutes - mins) * 60);
+                    return String.format("%d:%02d remaining", mins, secs);
+                }
+                
+            case BOTH:
+                double mins = healthPercent / 10.0;
+                String timeStr;
+                if (mins < 1.0) {
+                    timeStr = String.format("%.0fs", mins * 60);
+                } else {
+                    int m = (int) mins;
+                    int s = (int) ((mins - m) * 60);
+                    timeStr = String.format("%d:%02d", m, s);
+                }
+                return String.format("%.1f%% HP | %s", healthPercent, timeStr);
+                
+            default:
+                return null;
+        }
+    }
+    
+    public boolean shouldFlash()
+    {
+        if (!config.enableFlash() || currentCrab == null)
+        {
+            return false;
         }
         
-        // Calculate countdown based on elapsed time
-        long elapsedSinceCalculation = System.currentTimeMillis() - afkTimeCalculatedAt;
-        double elapsedSeconds = elapsedSinceCalculation / 1000.0;
-        double secondsRemaining = Math.max(0, baseSecondsRemaining - elapsedSeconds);
+        int healthRatio = Math.max(0, currentCrab.getHealthRatio());
+        int healthScale = Math.max(1, currentCrab.getHealthScale());
+        double healthPercent = (double) healthRatio / healthScale * 100.0;
         
-        // If countdown reaches 0 but crab still has HP, recalculate immediately
-        if (secondsRemaining <= 0 && currentHp > 0)
-        {
-            baseSecondsRemaining = Math.min(600, Math.max(5, currentHp / calculatedDps));
-            afkTimeCalculatedAt = System.currentTimeMillis();
-            secondsRemaining = baseSecondsRemaining;
-        }
-        
-        if (secondsRemaining < 60)
-        {
-            return String.format("%.0f seconds", secondsRemaining);
-        }
-        else
-        {
-            int minutes = (int) (secondsRemaining / 60);
-            int seconds = (int) (secondsRemaining % 60);
-            return String.format("%d:%02d remaining", minutes, seconds);
-        }
+        return healthPercent <= config.flashThreshold();
     }
     
     public NPC getCurrentCrab()

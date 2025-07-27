@@ -63,19 +63,16 @@ public class AfkCrabHelperOverlay extends Overlay
         graphics.setColor(transparentColor);
         graphics.fillRect(0, 0, 2560, 1440);
 
-        // Render AFK time in center if enabled and available
-        if (config.showAfkTime())
-        {
-            renderAfkTimeCenter(graphics);
-        }
+        // Render display text in center
+        renderDisplayText(graphics);
 
         return new Dimension(2560, 1440);
     }
 
-    private void renderAfkTimeCenter(Graphics2D graphics)
+    private void renderDisplayText(Graphics2D graphics)
     {
-        String afkTime = plugin.getAfkTimeRemaining();
-        if (afkTime == null)
+        String displayText = plugin.getDisplayText();
+        if (displayText == null)
         {
             return;
         }
@@ -94,18 +91,27 @@ public class AfkCrabHelperOverlay extends Overlay
         int canvasHeight = client.getCanvasHeight();
         
         // Calculate center position based on game canvas
-        int textWidth = metrics.stringWidth(afkTime);
+        int textWidth = metrics.stringWidth(displayText);
         int x = (canvasWidth - textWidth) / 2;
         int y = canvasHeight / 2;
 
         // Draw shadow (slightly offset)
         graphics.setColor(Color.BLACK);
-        graphics.drawString(afkTime, x + 2, y + 2);
+        graphics.drawString(displayText, x + 2, y + 2);
 
+        // Determine text color - flash if needed
+        Color textColor = Color.WHITE;
+        if (plugin.shouldFlash())
+        {
+            // Flash between normal color and flash color based on time
+            long currentTime = System.currentTimeMillis();
+            boolean flashState = (currentTime / 500) % 2 == 0; // Flash every 500ms
+            textColor = flashState ? config.flashColor() : Color.WHITE;
+        }
+        
         // Draw main text
-        Color textColor = afkTime.equals("Calculating...") ? Color.YELLOW : Color.WHITE;
         graphics.setColor(textColor);
-        graphics.drawString(afkTime, x, y);
+        graphics.drawString(displayText, x, y);
     }
 
 }
