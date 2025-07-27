@@ -50,27 +50,6 @@ public class AfkCrabHelperOverlay extends Overlay
             trainingStartTime = Instant.now();
         }
 
-        // Get the maximum possible size to cover everything
-        Dimension clientSize = new Dimension(2560, 1440); // Large enough for most screens
-        
-        try {
-            // Try to get actual client window size
-            if (client.getCanvas() != null) {
-                java.awt.Component canvas = client.getCanvas();
-                // Try to walk up the component hierarchy to find the main window
-                java.awt.Component parent = canvas;
-                while (parent.getParent() != null) {
-                    parent = parent.getParent();
-                    if (parent instanceof javax.swing.JFrame || parent instanceof java.awt.Window) {
-                        clientSize = parent.getSize();
-                        break;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            // Use fallback size if anything fails
-        }
-        
         // Create overlay color with configured opacity
         Color overlayColor = config.overlayColor();
         Color transparentColor = new Color(
@@ -80,9 +59,9 @@ public class AfkCrabHelperOverlay extends Overlay
             config.overlayOpacity()
         );
         
-        // Fill the entire client with overlay
+        // Fill the entire screen with overlay (using a large size to ensure full coverage)
         graphics.setColor(transparentColor);
-        graphics.fillRect(0, 0, clientSize.width, clientSize.height);
+        graphics.fillRect(0, 0, 2560, 1440);
 
         // Render AFK time in center if enabled and available
         if (config.showAfkTime())
@@ -90,7 +69,7 @@ public class AfkCrabHelperOverlay extends Overlay
             renderAfkTimeCenter(graphics);
         }
 
-        return clientSize;
+        return new Dimension(2560, 1440);
     }
 
     private void renderAfkTimeCenter(Graphics2D graphics)
