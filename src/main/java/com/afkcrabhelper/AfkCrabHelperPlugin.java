@@ -43,6 +43,8 @@ public class AfkCrabHelperPlugin extends Plugin
     
     // Crab tracking variables
     private NPC currentCrab = null;
+    private long timerStartTime = 0;
+    private double initialTimeMinutes = 0.0;
 
     @Override
     protected void startUp() throws Exception
@@ -92,6 +94,13 @@ public class AfkCrabHelperPlugin extends Plugin
                 if (currentCrab != npc)
                 {
                     currentCrab = npc;
+                    // Start countdown timer
+                    timerStartTime = System.currentTimeMillis();
+                    // Calculate initial time based on health%
+                    int healthRatio = Math.max(0, npc.getHealthRatio());
+                    int healthScale = Math.max(1, npc.getHealthScale());
+                    double healthPercent = (double) healthRatio / healthScale * 100.0;
+                    initialTimeMinutes = healthPercent / 10.0;
                 }
             }
         }
@@ -120,6 +129,8 @@ public class AfkCrabHelperPlugin extends Plugin
         {
             // Stopping interaction - reset crab tracking
             currentCrab = null;
+            timerStartTime = 0;
+            initialTimeMinutes = 0.0;
         }
         
         // Update overlay start time if we don't have one but should be showing
@@ -142,6 +153,8 @@ public class AfkCrabHelperPlugin extends Plugin
                 // Reset tracking
                 isInteractingWithCrab = false;
                 currentCrab = null;
+                timerStartTime = 0;
+                initialTimeMinutes = 0.0;
             }
         }
     }
@@ -191,6 +204,8 @@ public class AfkCrabHelperPlugin extends Plugin
             // Crab despawned - stop overlay immediately
             isInteractingWithCrab = false;
             currentCrab = null;
+            timerStartTime = 0;
+            initialTimeMinutes = 0.0;
         }
     }
     
@@ -233,8 +248,18 @@ public class AfkCrabHelperPlugin extends Plugin
                 return String.format("%.1f%% HP", healthPercent);
                 
             case TIME_REMAINING:
-                // Calculate time: health% / 10 minutes
-                double minutes = healthPercent / 10.0;
+                // Use countdown timer if we have one, otherwise calculate from health%
+                double minutes;
+                if (timerStartTime > 0) {
+                    // Calculate remaining time from countdown
+                    long elapsedMs = System.currentTimeMillis() - timerStartTime;
+                    double elapsedMinutes = elapsedMs / 1000.0 / 60.0;
+                    minutes = Math.max(0, initialTimeMinutes - elapsedMinutes);
+                } else {
+                    // Fallback to health% calculation
+                    minutes = healthPercent / 10.0;
+                }
+                
                 if (minutes < 1.0) {
                     return String.format("%.0f seconds", minutes * 60);
                 } else {
@@ -244,7 +269,18 @@ public class AfkCrabHelperPlugin extends Plugin
                 }
                 
             case BOTH:
-                double mins = healthPercent / 10.0;
+                // Use countdown timer if we have one, otherwise calculate from health%
+                double mins;
+                if (timerStartTime > 0) {
+                    // Calculate remaining time from countdown
+                    long elapsedMs = System.currentTimeMillis() - timerStartTime;
+                    double elapsedMinutes = elapsedMs / 1000.0 / 60.0;
+                    mins = Math.max(0, initialTimeMinutes - elapsedMinutes);
+                } else {
+                    // Fallback to health% calculation
+                    mins = healthPercent / 10.0;
+                }
+                
                 String timeStr;
                 if (mins < 1.0) {
                     timeStr = String.format("%.0fs", mins * 60);
