@@ -20,7 +20,7 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @Slf4j
 @PluginDescriptor(
     name = "AFK Crab Helper",
-    description = "Provides a distraction-reducing overlay when training on crabs. Supports Sand Crabs, Rock Crabs, Ammonite Crabs, and Gemstone Crabs with special AFK timer for Gemstone Crabs",
+    description = "Gemstone Crab AFK timer overlay shows time remaining until crab dies. Also supports Sand Crabs, Rock Crabs, and Ammonite Crabs with HP percentage display and flash alerts",
     tags = {"afk", "crab", "training", "overlay", "distraction", "gemstone", "sand", "rock", "ammonite"}
 )
 public class AfkCrabHelperPlugin extends Plugin
