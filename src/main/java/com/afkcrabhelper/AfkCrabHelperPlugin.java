@@ -230,14 +230,30 @@ public class AfkCrabHelperPlugin extends Plugin
             return null;
         }
         
+        // Check if this is a Gemstone Crab
+        boolean isGemstone = isGemstoneCrab(currentCrab.getName());
+        
         // Get crab health info
         int healthRatio = Math.max(0, currentCrab.getHealthRatio());
         int healthScale = Math.max(1, currentCrab.getHealthScale());
         double healthPercent = (double) healthRatio / healthScale * 100.0;
         
-        if (healthPercent <= 0)
+        // Only show "Crab dead" for Gemstone Crabs
+        if (healthPercent <= 0 && isGemstone)
         {
             return "Crab dead";
+        }
+        
+        // For non-Gemstone crabs, only show black screen with no text when dead
+        if (healthPercent <= 0 && !isGemstone)
+        {
+            return null;
+        }
+        
+        // Only show health/time info for Gemstone Crabs
+        if (!isGemstone)
+        {
+            return null;
         }
         
         AfkCrabHelperConfig.DisplayMode mode = config.displayMode();
@@ -299,6 +315,12 @@ public class AfkCrabHelperPlugin extends Plugin
     public boolean shouldFlash()
     {
         if (!config.enableFlash() || currentCrab == null)
+        {
+            return false;
+        }
+        
+        // Only flash for Gemstone Crabs
+        if (!isGemstoneCrab(currentCrab.getName()))
         {
             return false;
         }
