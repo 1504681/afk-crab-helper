@@ -43,6 +43,7 @@ public class AfkCrabHelperPlugin extends Plugin
     
     // Crab tracking variables
     private NPC currentCrab = null;
+    private int lastSeenHealthRatio = 0;
     private long timerStartTime = 0;
     private double initialTimeMinutes = 0.0;
 
@@ -89,17 +90,21 @@ public class AfkCrabHelperPlugin extends Plugin
                 currentlyInteractingWithCrab = true;
                 lastCrabInteraction = System.currentTimeMillis();
                 targetCrab = npc;
-                
+
+                int npcHealthRatio = npc.getHealthRatio();
+
                 // If this is a new crab or we weren't tracking before, update tracking
-                if (currentCrab != npc)
+                if (currentCrab != npc || lastSeenHealthRatio != npcHealthRatio)
                 {
                     currentCrab = npc;
+                    lastSeenHealthRatio = npcHealthRatio;
                     // Start countdown timer
                     timerStartTime = System.currentTimeMillis();
                     // Calculate initial time based on health%
-                    int healthRatio = Math.max(0, npc.getHealthRatio());
+                    int healthRatio = Math.max(0, npcHealthRatio);
                     int healthScale = Math.max(1, npc.getHealthScale());
-                    double healthPercent = (double) healthRatio / healthScale * 100.0;
+                    // After some testing, subtracting 0.5 give more accurate timing
+                    double healthPercent = (healthRatio - 0.5) / healthScale * 100.0;
                     initialTimeMinutes = healthPercent / 10.0;
                 }
             }
