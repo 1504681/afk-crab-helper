@@ -1,6 +1,7 @@
 package com.afkcrabhelper;
 
 import java.awt.Color;
+import java.awt.Font;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
@@ -25,16 +26,23 @@ public interface AfkCrabHelperConfig extends Config
     String appearanceSection = "appearance";
 
     @ConfigSection(
+        name = "Font",
+        description = "Configure text font settings",
+        position = 2
+    )
+    String fontSection = "font";
+
+    @ConfigSection(
         name = "Flash Alert",
         description = "Configure low HP flash alert",
-        position = 2
+        position = 3
     )
     String flashSection = "flash";
 
     @ConfigSection(
         name = "Timing",
         description = "Configure overlay timing",
-        position = 3
+        position = 4
     )
     String timingSection = "timing";
 
@@ -73,6 +81,56 @@ public interface AfkCrabHelperConfig extends Config
     default int overlayOpacity()
     {
         return 200;
+    }
+
+
+    @ConfigItem(
+        keyName = "fontFamily",
+        name = "Font Family",
+        description = "Font family for the overlay text",
+        section = fontSection,
+        position = 0
+    )
+    default FontFamily fontFamily()
+    {
+        return FontFamily.SANS_SERIF;
+    }
+
+    @ConfigItem(
+        keyName = "fontSize",
+        name = "Font Size",
+        description = "Size of the overlay text",
+        section = fontSection,
+        position = 1
+    )
+    @Range(min = 12, max = 200)
+    default int fontSize()
+    {
+        return 36;
+    }
+
+    @ConfigItem(
+        keyName = "fontColor",
+        name = "Font Color",
+        description = "Color of the overlay text",
+        section = fontSection,
+        position = 2
+    )
+    default Color fontColor()
+    {
+        return Color.WHITE;
+    }
+
+    @ConfigItem(
+        keyName = "fontStyle",
+        name = "Font Style",
+        description = "Style of the overlay text",
+        section = fontSection,
+        position = 3
+    )
+    default FontStyle fontStyle()
+    {
+        return FontStyle.BOLD;
     }
 
     @ConfigItem(
@@ -157,4 +215,84 @@ public interface AfkCrabHelperConfig extends Config
             return name;
         }
     }
+
+    enum FontFamily
+    {
+        SANS_SERIF("Sans Serif"),
+        SERIF("Serif"),
+        MONOSPACED("Monospaced"),
+        DIALOG("Dialog"),
+        DIALOG_INPUT("Dialog Input");
+
+        private final String name;
+
+        FontFamily(String name)
+        {
+            this.name = name;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name;
+        }
+
+        public String getJavaFontName()
+        {
+            switch (this)
+            {
+                case SANS_SERIF:
+                    return Font.SANS_SERIF;
+                case SERIF:
+                    return Font.SERIF;
+                case MONOSPACED:
+                    return Font.MONOSPACED;
+                case DIALOG:
+                    return Font.DIALOG;
+                case DIALOG_INPUT:
+                    return Font.DIALOG_INPUT;
+                default:
+                    return Font.SANS_SERIF;
+            }
+        }
+    }
+
+    enum FontStyle
+    {
+        PLAIN("Plain"),
+        BOLD("Bold"),
+        ITALIC("Italic"),
+        BOLD_ITALIC("Bold Italic");
+
+        private final String name;
+
+        FontStyle(String name)
+        {
+            this.name = name;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name;
+        }
+
+        public int getJavaFontStyle()
+        {
+            switch (this)
+            {
+                case PLAIN:
+                    return Font.PLAIN;
+                case BOLD:
+                    return Font.BOLD;
+                case ITALIC:
+                    return Font.ITALIC;
+                case BOLD_ITALIC:
+                    return Font.BOLD | Font.ITALIC;
+                default:
+                    return Font.PLAIN;
+            }
+        }
+    }
+
 }

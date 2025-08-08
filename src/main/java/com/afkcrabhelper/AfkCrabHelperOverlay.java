@@ -9,9 +9,7 @@ import java.awt.RenderingHints;
 import java.time.Duration;
 import java.time.Instant;
 import javax.inject.Inject;
-import net.runelite.api.Actor;
 import net.runelite.api.Client;
-import net.runelite.api.NPC;
 import net.runelite.client.ui.overlay.Overlay;
 import net.runelite.client.ui.overlay.OverlayLayer;
 import net.runelite.client.ui.overlay.OverlayPosition;
@@ -59,14 +57,18 @@ public class AfkCrabHelperOverlay extends Overlay
             config.overlayOpacity()
         );
         
-        // Fill the entire screen with overlay (using a large size to ensure full coverage)
+        // Get screen dimensions
+        int screenWidth = client.getCanvasWidth();
+        int screenHeight = client.getCanvasHeight();
+        
+        // Fill the entire screen with overlay
         graphics.setColor(transparentColor);
-        graphics.fillRect(0, 0, 2560, 1440);
+        graphics.fillRect(0, 0, screenWidth, screenHeight);
 
         // Render display text in center
         renderDisplayText(graphics);
 
-        return new Dimension(2560, 1440);
+        return new Dimension(screenWidth, screenHeight);
     }
 
     private void renderDisplayText(Graphics2D graphics)
@@ -81,8 +83,11 @@ public class AfkCrabHelperOverlay extends Overlay
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
-        // Set large font
-        Font font = new Font(Font.SANS_SERIF, Font.BOLD, 36);
+        // Use configurable font settings
+        String fontFamily = config.fontFamily().getJavaFontName();
+        int fontStyle = config.fontStyle().getJavaFontStyle();
+        int fontSize = config.fontSize();
+        Font font = new Font(fontFamily, fontStyle, fontSize);
         graphics.setFont(font);
         FontMetrics metrics = graphics.getFontMetrics(font);
 
@@ -100,18 +105,17 @@ public class AfkCrabHelperOverlay extends Overlay
         graphics.drawString(displayText, x + 2, y + 2);
 
         // Determine text color - flash if needed
-        Color textColor = Color.WHITE;
+        Color textColor = config.fontColor();
         if (plugin.shouldFlash())
         {
             // Flash between normal color and flash color based on time
             long currentTime = System.currentTimeMillis();
             boolean flashState = (currentTime / 500) % 2 == 0; // Flash every 500ms
-            textColor = flashState ? config.flashColor() : Color.WHITE;
+            textColor = flashState ? config.flashColor() : config.fontColor();
         }
         
         // Draw main text
         graphics.setColor(textColor);
         graphics.drawString(displayText, x, y);
     }
-
 }
