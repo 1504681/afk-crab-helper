@@ -103,9 +103,16 @@ public class AfkCrabHelperPlugin extends Plugin
                     // Calculate initial time based on health%
                     int healthRatio = Math.max(0, npcHealthRatio);
                     int healthScale = Math.max(1, npc.getHealthScale());
+                    
+                    // If health ratio is 0 or very low, assume full health (just spawned)
+                    if (healthRatio <= 0)
+                    {
+                        healthRatio = healthScale; // Assume full health
+                    }
+                    
                     // After some testing, subtracting 0.5 give more accurate timing
                     double healthPercent = (healthRatio - 0.5) / healthScale * 100.0;
-                    initialTimeMinutes = healthPercent / 10.0;
+                    initialTimeMinutes = Math.max(0, healthPercent / 10.0);
                 }
             }
         }
