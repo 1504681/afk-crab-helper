@@ -1,4 +1,4 @@
-package com.andmcadams.wikisync;
+package com.afkcrabhelper;
 
 import com.afkcrabhelper.AfkCrabHelperPlugin;
 import net.runelite.client.RuneLite;
