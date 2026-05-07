@@ -178,6 +178,7 @@ public class AfkCrabHelperPlugin extends Plugin
         return lowerName.equals("sand crab") ||
                lowerName.equals("rock crab") ||
                lowerName.equals("ammonite crab") ||
+               lowerName.equals("frost crab") ||
                lowerName.equals("gemstone crab");
     }
     
