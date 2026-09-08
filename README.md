@@ -1,6 +1,6 @@
 # AFK Crab Helper
 
-A RuneLite plugin that provides a distraction-reducing overlay when training on crabs, helping you focus on other tasks while AFK training.
+A RuneLite plugin that provides a distraction-reducing overlay when training on the Gemstone Crab, helping you focus on other tasks while AFK training.
 
 Heavily inspired by the great plugin **Distraction Reducer** https://github.com/Car-role/distraction-reducer
 
@@ -10,7 +10,7 @@ Heavily inspired by the great plugin **Distraction Reducer** https://github.com/
 
 ## Features
 
-- **Automatic Detection**: Detects when you're interacting with any crab type (Sand Crabs, Rock Crabs, Ammonite Crabs, Gemstone Crab)
+- **Automatic Detection**: Detects when you're interacting with the Gemstone Crab
 - **Distraction Overlay**: Covers the screen with a customizable overlay to reduce visual distractions
 - **Customizable Settings**: Adjust overlay color, opacity, and timing delays
 
@@ -21,10 +21,7 @@ Heavily inspired by the great plugin **Distraction Reducer** https://github.com/
 
 ## Supported Crab Types
 
-- Sand Crabs (Hosidius)
-- Rock Crabs (Rellekka)
-- Ammonite Crabs (Fossil Island)
-- Gemstone Crab
+- Gemstone Crab only. Sand, Rock and Ammonite Crabs are no longer detected as of 1.2.
 
 #
 

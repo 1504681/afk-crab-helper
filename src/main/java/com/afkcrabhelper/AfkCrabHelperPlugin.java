@@ -20,8 +20,8 @@ import net.runelite.client.ui.overlay.OverlayManager;
 @Slf4j
 @PluginDescriptor(
     name = "AFK Crab Helper",
-    description = "Gemstone Crab AFK timer overlay shows time remaining until crab dies. Also supports Sand Crabs, Rock Crabs, and Ammonite Crabs with HP percentage display and flash alerts",
-    tags = {"afk", "crab", "training", "overlay", "distraction", "gemstone", "sand", "rock", "ammonite"}
+    description = "Gemstone Crab AFK overlay with a countdown until the crab dies, HP percentage and flash alerts",
+    tags = {"afk", "crab", "training", "overlay", "distraction", "gemstone"}
 )
 public class AfkCrabHelperPlugin extends Plugin
 {
@@ -175,10 +175,7 @@ public class AfkCrabHelperPlugin extends Plugin
     {
         if (npcName == null) return false;
         String lowerName = npcName.toLowerCase();
-        return lowerName.equals("sand crab") ||
-               lowerName.equals("rock crab") ||
-               lowerName.equals("ammonite crab") ||
-               lowerName.equals("gemstone crab");
+        return lowerName.equals("gemstone crab");
     }
     
     private boolean isGemstoneCrab(String npcName)
