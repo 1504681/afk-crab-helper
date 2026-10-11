@@ -92,27 +92,24 @@ public class AfkCrabHelperPlugin extends Plugin
                 targetCrab = npc;
 
                 int npcHealthRatio = npc.getHealthRatio();
+                int npcHealthScale = npc.getHealthScale();
+                // -1 means the client has no health bar for this NPC (freshly spawned, nobody has hit it yet)
+                boolean healthKnown = npcHealthRatio >= 0 && npcHealthScale > 0;
 
-                // If this is a new crab or we weren't tracking before, update tracking
-                if (currentCrab != npc || lastSeenHealthRatio != npcHealthRatio)
+                if (currentCrab != npc)
                 {
+                    // New crab: start the countdown. No health bar yet means it just spawned, so assume full.
                     currentCrab = npc;
                     lastSeenHealthRatio = npcHealthRatio;
-                    // Start countdown timer
                     timerStartTime = System.currentTimeMillis();
-                    // Calculate initial time based on health%
-                    int healthRatio = Math.max(0, npcHealthRatio);
-                    int healthScale = Math.max(1, npc.getHealthScale());
-                    
-                    // If health ratio is 0 or very low, assume full health (just spawned)
-                    if (healthRatio <= 0)
-                    {
-                        healthRatio = healthScale; // Assume full health
-                    }
-                    
-                    // After some testing, subtracting 0.5 give more accurate timing
-                    double healthPercent = (healthRatio - 0.5) / healthScale * 100.0;
-                    initialTimeMinutes = Math.max(0, healthPercent / 10.0);
+                    initialTimeMinutes = healthKnown ? minutesForHealth(npcHealthRatio, npcHealthScale) : 10.0;
+                }
+                else if (healthKnown && lastSeenHealthRatio != npcHealthRatio)
+                {
+                    // Health bar ticked: resync the countdown so drift stays within one bar unit
+                    lastSeenHealthRatio = npcHealthRatio;
+                    timerStartTime = System.currentTimeMillis();
+                    initialTimeMinutes = minutesForHealth(npcHealthRatio, npcHealthScale);
                 }
             }
         }
@@ -178,9 +175,13 @@ public class AfkCrabHelperPlugin extends Plugin
         return lowerName.equals("gemstone crab");
     }
     
-    private boolean isGemstoneCrab(String npcName)
+    // The Gemstone Crab's bar drains on a fixed ~10 minute schedule regardless of damage,
+    // so health% maps straight to minutes left. Half a bar unit is subtracted because the
+    // displayed ratio rounds up; testing showed that tracks the real burrow time better.
+    private static double minutesForHealth(int healthRatio, int healthScale)
     {
-        return npcName != null && npcName.toLowerCase().equals("gemstone crab");
+        double healthPercent = (healthRatio - 0.5) / healthScale * 100.0;
+        return Math.max(0, healthPercent / 10.0);
     }
     
     @Subscribe
@@ -238,87 +239,55 @@ public class AfkCrabHelperPlugin extends Plugin
         {
             return null;
         }
-        
-        // Check if this is a Gemstone Crab
-        boolean isGemstone = isGemstoneCrab(currentCrab.getName());
-        
-        // Get crab health info
-        int healthRatio = Math.max(0, currentCrab.getHealthRatio());
-        int healthScale = Math.max(1, currentCrab.getHealthScale());
-        double healthPercent = (double) healthRatio / healthScale * 100.0;
-        
-        // Only show "Crab dead" for Gemstone Crabs
-        if (healthPercent <= 0 && isGemstone)
+
+        int healthRatio = currentCrab.getHealthRatio();
+        int healthScale = currentCrab.getHealthScale();
+        boolean healthKnown = healthRatio >= 0 && healthScale > 0;
+        double minutes = remainingMinutes(healthKnown ? (double) healthRatio / healthScale * 100.0 : 100.0);
+        // No health bar yet (fresh spawn): estimate HP from the countdown instead of showing 0% / "Crab dead"
+        double healthPercent = healthKnown ? (double) healthRatio / healthScale * 100.0 : Math.min(100.0, minutes * 10.0);
+
+        if (healthKnown && healthRatio == 0)
         {
             return "Crab dead";
         }
-        
-        // For non-Gemstone crabs, only show black screen with no text when dead
-        if (healthPercent <= 0 && !isGemstone)
-        {
-            return null;
-        }
-        
-        // Only show health/time info for Gemstone Crabs
-        if (!isGemstone)
-        {
-            return null;
-        }
-        
-        AfkCrabHelperConfig.DisplayMode mode = config.displayMode();
-        
-        switch (mode)
+
+        switch (config.displayMode())
         {
             case HP_PERCENTAGE:
                 return String.format("%.1f%% HP", healthPercent);
-                
+
             case TIME_REMAINING:
-                // Use countdown timer if we have one, otherwise calculate from health%
-                double minutes;
-                if (timerStartTime > 0) {
-                    // Calculate remaining time from countdown
-                    long elapsedMs = System.currentTimeMillis() - timerStartTime;
-                    double elapsedMinutes = elapsedMs / 1000.0 / 60.0;
-                    minutes = Math.max(0, initialTimeMinutes - elapsedMinutes);
-                } else {
-                    // Fallback to health% calculation
-                    minutes = healthPercent / 10.0;
-                }
-                
-                if (minutes < 1.0) {
+                if (minutes < 1.0)
+                {
                     return String.format("%.0f seconds", minutes * 60);
-                } else {
-                    int mins = (int) minutes;
-                    int secs = (int) ((minutes - mins) * 60);
-                    return String.format("%d:%02d remaining", mins, secs);
                 }
-                
+                return formatTime(minutes) + " remaining";
+
             case BOTH:
-                // Use countdown timer if we have one, otherwise calculate from health%
-                double mins;
-                if (timerStartTime > 0) {
-                    // Calculate remaining time from countdown
-                    long elapsedMs = System.currentTimeMillis() - timerStartTime;
-                    double elapsedMinutes = elapsedMs / 1000.0 / 60.0;
-                    mins = Math.max(0, initialTimeMinutes - elapsedMinutes);
-                } else {
-                    // Fallback to health% calculation
-                    mins = healthPercent / 10.0;
-                }
-                
-                String timeStr;
-                if (mins < 1.0) {
-                    timeStr = String.format("%.0fs", mins * 60);
-                } else {
-                    int m = (int) mins;
-                    int s = (int) ((mins - m) * 60);
-                    timeStr = String.format("%d:%02d", m, s);
-                }
+                String timeStr = minutes < 1.0 ? String.format("%.0fs", minutes * 60) : formatTime(minutes);
                 return String.format("%.1f%% HP | %s", healthPercent, timeStr);
-                
+
             default:
                 return null;
         }
+    }
+
+    private double remainingMinutes(double fallbackHealthPercent)
+    {
+        if (timerStartTime > 0)
+        {
+            double elapsedMinutes = (System.currentTimeMillis() - timerStartTime) / 1000.0 / 60.0;
+            return Math.max(0, initialTimeMinutes - elapsedMinutes);
+        }
+        return fallbackHealthPercent / 10.0;
+    }
+
+    private static String formatTime(double minutes)
+    {
+        int mins = (int) minutes;
+        int secs = (int) ((minutes - mins) * 60);
+        return String.format("%d:%02d", mins, secs);
     }
     
     public boolean shouldFlash()
@@ -328,14 +297,12 @@ public class AfkCrabHelperPlugin extends Plugin
             return false;
         }
         
-        // Only flash for Gemstone Crabs
-        if (!isGemstoneCrab(currentCrab.getName()))
+        int healthRatio = currentCrab.getHealthRatio();
+        int healthScale = currentCrab.getHealthScale();
+        if (healthRatio < 0 || healthScale <= 0)
         {
-            return false;
+            return false; // no health bar yet, nothing to alert on
         }
-        
-        int healthRatio = Math.max(0, currentCrab.getHealthRatio());
-        int healthScale = Math.max(1, currentCrab.getHealthScale());
         double healthPercent = (double) healthRatio / healthScale * 100.0;
         
         return healthPercent <= config.flashThreshold();
