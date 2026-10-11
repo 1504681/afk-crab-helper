@@ -25,12 +25,12 @@ Heavily inspired by the great plugin **Distraction Reducer** https://github.com/
 
 #
 
-## License
-
-This plugin is licensed under the BSD 2-Clause License, same as RuneLite.
-
 ## Changelog
 
 1.3: no more "Crab dead" / 0 seconds right after a Gemstone Crab spawns, before its health bar appears. The countdown starts at 10:00 and resyncs once the bar shows.
 
 1.2: Gemstone Crab only. Sand, Rock and Ammonite crabs are no longer detected.
+
+## License
+
+This plugin is licensed under the BSD 2-Clause License, same as RuneLite.
